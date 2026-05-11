@@ -1,21 +1,7 @@
 name: Helm Deploy
 
 on:
-  push:
-    branches: [main, "release/*"]
-    paths:
-      - "helm/**"
   workflow_dispatch:
-    inputs:
-      environment:
-        description: Target environment
-        required: true
-        default: dev
-        type: choice
-        options: [dev, prod]
-      chart:
-        description: Chart to deploy (leave blank for all)
-        required: false
 
 env:
   AWS_REGION: us-east-1
