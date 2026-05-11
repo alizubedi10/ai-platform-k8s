@@ -1,0 +1,84 @@
+replicaCount: 2
+
+image:
+  repository: "123456789.dkr.ecr.us-east-1.amazonaws.com/model-serving"
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: "model-serving-sa"
+  annotations:
+    eks.amazonaws.com/role-arn: ""  # Set to IRSA role ARN
+
+service:
+  type: ClusterIP
+  port: 8080
+  metricsPort: 9090
+
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+  hosts:
+    - host: model-serving.internal
+      paths:
+        - path: /
+          pathType: Prefix
+
+resources:
+  requests:
+    cpu: "500m"
+    memory: "1Gi"
+  limits:
+    cpu: "2"
+    memory: "4Gi"
+
+# GPU — set to 1 to schedule on GPU node group
+gpu:
+  enabled: false
+  count: 1
+
+# Tolerations for GPU node taint
+tolerations: []
+# - key: "nvidia.com/gpu"
+#   operator: "Equal"
+#   value: "true"
+#   effect: "NoSchedule"
+
+nodeSelector: {}
+# role: gpu
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8080
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds: 5
+
+env:
+  MODEL_NAME: "default-model"
+  MODEL_VERSION: "1"
+  LOG_LEVEL: "INFO"
+
+# S3 path to model artifacts
+modelArtifacts:
+  s3Bucket: ""
+  s3Path: "models/"

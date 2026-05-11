@@ -1,0 +1,5 @@
+aws_region      = "us-east-1"
+aws_profile     = "ai-platform-prod"
+environment     = "prod"
+vpc_cidr        = "10.1.0.0/16"
+cluster_version = "1.29"

@@ -1,0 +1,13 @@
+apiVersion: v2
+name: model-serving
+description: Production model inference service with GPU support, HPA, and canary-ready routing
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - ai
+  - ml
+  - inference
+  - kubernetes
+maintainers:
+  - name: platform-team

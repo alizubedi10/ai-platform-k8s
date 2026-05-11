@@ -1,0 +1,44 @@
+image:
+  repository: rayproject/ray
+  tag: "2.9.0-py310"
+
+head:
+  resources:
+    requests:
+      cpu: "2"
+      memory: "4Gi"
+    limits:
+      cpu: "4"
+      memory: "8Gi"
+  serviceType: ClusterIP
+
+worker:
+  replicas: 2
+  resources:
+    requests:
+      cpu: "4"
+      memory: "8Gi"
+    limits:
+      cpu: "8"
+      memory: "16Gi"
+
+  # GPU workers — set enabled: true for GPU-backed training
+  gpu:
+    enabled: false
+    count: 1
+    tolerations:
+      - key: "nvidia.com/gpu"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+    nodeSelector:
+      role: gpu
+
+autoscaler:
+  enabled: true
+  upscalingMode: Default
+  idleTimeoutSeconds: 60
+
+dashboard:
+  enabled: true
+  port: 8265

@@ -1,0 +1,83 @@
+environments:
+  dev:
+    values:
+      - env: dev
+      - cluster: ai-platform-dev
+  prod:
+    values:
+      - env: prod
+      - cluster: ai-platform-prod
+
+---
+
+repositories:
+  - name: nvidia
+    url: https://helm.ngc.nvidia.com/nvidia
+  - name: eks
+    url: https://aws.github.io/eks-charts
+  - name: jetstack
+    url: https://charts.jetstack.io
+
+releases:
+
+  # AWS Load Balancer Controller
+  - name: aws-load-balancer-controller
+    namespace: kube-system
+    chart: eks/aws-load-balancer-controller
+    version: 1.7.1
+    values:
+      - clusterName: {{ .Values.cluster }}
+        serviceAccount:
+          create: true
+          annotations:
+            eks.amazonaws.com/role-arn: ""  # Set via CI or tfvars
+
+  # NVIDIA Device Plugin (GPU support)
+  - name: nvidia-device-plugin
+    namespace: kube-system
+    chart: nvidia/nvidia-device-plugin
+    version: 0.14.5
+    values:
+      - tolerations:
+          - key: nvidia.com/gpu
+            operator: Exists
+            effect: NoSchedule
+
+  # Cluster Autoscaler
+  - name: cluster-autoscaler
+    namespace: kube-system
+    chart: eks/cluster-autoscaler
+    version: 9.35.0
+    values:
+      - autoDiscovery:
+          clusterName: {{ .Values.cluster }}
+        awsRegion: us-east-1
+
+  # cert-manager (for TLS)
+  - name: cert-manager
+    namespace: cert-manager
+    chart: jetstack/cert-manager
+    version: v1.14.2
+    values:
+      - installCRDs: true
+
+  # MLflow
+  - name: mlflow
+    namespace: mlflow
+    chart: ./charts/mlflow
+    values:
+      - ./charts/mlflow/values.yaml
+
+  # Model Serving
+  - name: model-serving
+    namespace: model-serving
+    chart: ./charts/model-serving
+    values:
+      - ./charts/model-serving/values.yaml
+
+  # Ray Cluster
+  - name: ray-cluster
+    namespace: ray
+    chart: ./charts/ray-cluster
+    values:
+      - ./charts/ray-cluster/values.yaml

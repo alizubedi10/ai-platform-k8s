@@ -1,0 +1,106 @@
+name: Helm Deploy
+
+on:
+  push:
+    branches: [main, "release/*"]
+    paths:
+      - "helm/**"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        default: dev
+        type: choice
+        options: [dev, prod]
+      chart:
+        description: Chart to deploy (leave blank for all)
+        required: false
+
+env:
+  AWS_REGION: us-east-1
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  lint:
+    name: Helm Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.14.0
+
+      - name: Helm Lint — model-serving
+        run: helm lint helm/charts/model-serving
+
+      - name: Helm Lint — mlflow
+        run: helm lint helm/charts/mlflow
+
+      - name: Helm Lint — ray-cluster
+        run: helm lint helm/charts/ray-cluster
+
+  deploy-dev:
+    name: Deploy → dev
+    runs-on: ubuntu-latest
+    needs: lint
+    if: github.ref == 'refs/heads/main'
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name ai-platform-dev \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Install helmfile
+        run: |
+          curl -L https://github.com/helmfile/helmfile/releases/download/v0.161.0/helmfile_linux_amd64.tar.gz | tar xz
+          sudo mv helmfile /usr/local/bin/
+
+      - name: Helmfile sync — dev
+        working-directory: helm
+        run: helmfile -e dev sync
+
+  deploy-prod:
+    name: Deploy → prod
+    runs-on: ubuntu-latest
+    needs: lint
+    if: startsWith(github.ref, 'refs/heads/release/')
+    environment: prod   # Manual approval gate
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_PROD }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name ai-platform-prod \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Install helmfile
+        run: |
+          curl -L https://github.com/helmfile/helmfile/releases/download/v0.161.0/helmfile_linux_amd64.tar.gz | tar xz
+          sudo mv helmfile /usr/local/bin/
+
+      - name: Helmfile sync — prod
+        working-directory: helm
+        run: helmfile -e prod sync

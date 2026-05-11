@@ -1,0 +1,45 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/mlflow/mlflow
+  tag: "v2.10.0"
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  name: mlflow-sa
+  annotations:
+    eks.amazonaws.com/role-arn: ""  # Set to IRSA role ARN
+
+service:
+  type: ClusterIP
+  port: 5000
+
+ingress:
+  enabled: false
+  className: alb
+  annotations: {}
+  hosts:
+    - host: mlflow.internal
+      paths:
+        - path: /
+          pathType: Prefix
+
+resources:
+  requests:
+    cpu: "250m"
+    memory: "512Mi"
+  limits:
+    cpu: "1"
+    memory: "2Gi"
+
+# Backend store: postgresql (RDS)
+backendStore:
+  databaseUri: ""  # Injected via secret: postgresql://user:pass@host:5432/mlflow
+
+# Artifact store: S3
+artifactStore:
+  s3Bucket: ""
+  s3Path: "mlflow-artifacts"
+
+persistence:
+  enabled: false  # Use S3; no local PVC needed
