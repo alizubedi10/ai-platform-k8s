@@ -18,6 +18,7 @@ terraform {
     region         = "us-east-2"
     dynamodb_table = "ai-platform-tfstate-lock"
     encrypt        = true
+    profile        = "ai-platform"
   }
 }
 
@@ -31,7 +32,7 @@ provider "aws" {
 }
 
 locals {
-  cluster_name = "ai-platform-${var.environment}"
+  cluster_name = "ai-plat-${var.environment}"
   common_tags = {
     Project     = "ai-platform"
     Environment = var.environment
@@ -62,7 +63,7 @@ module "gpu_nodegroup" {
   cluster_name       = local.cluster_name
   private_subnet_ids = module.vpc.private_subnet_ids
   gpu_instance_types = ["g4dn.xlarge"]
-  desired_size       = 0   # Scale to 0 in dev by default
+  desired_size       = 0
   min_size           = 0
   max_size           = 2
   tags               = local.common_tags
@@ -78,7 +79,6 @@ module "iam" {
   tags                   = local.common_tags
 }
 
-# S3 buckets for model artifacts and MLflow
 resource "aws_s3_bucket" "model_artifacts" {
   bucket = "${local.cluster_name}-model-artifacts"
   tags   = local.common_tags
@@ -91,5 +91,7 @@ resource "aws_s3_bucket" "mlflow_artifacts" {
 
 resource "aws_s3_bucket_versioning" "model_artifacts" {
   bucket = aws_s3_bucket.model_artifacts.id
-  versioning_configuration { status = "Enabled" }
+  versioning_configuration {
+    status = "Enabled"
+  }
 }
