@@ -1,4 +1,4 @@
-aws_region      = "us-east-1"
+aws_region      = "us-east-2"
 aws_profile     = "ai-platform"
 environment     = "dev"
 vpc_cidr        = "10.0.0.0/16"
