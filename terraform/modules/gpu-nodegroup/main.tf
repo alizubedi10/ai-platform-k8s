@@ -39,6 +39,7 @@ resource "aws_eks_node_group" "gpu" {
     aws_iam_role_policy_attachment.gpu_worker_node,
     aws_iam_role_policy_attachment.gpu_cni,
     aws_iam_role_policy_attachment.gpu_ecr,
+    var.cluster_depends_on,
   ]
 }
 

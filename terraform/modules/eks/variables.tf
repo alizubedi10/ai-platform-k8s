@@ -21,7 +21,7 @@ variable "private_subnet_ids" {
 
 variable "general_instance_types" {
   type    = list(string)
-  default = ["m5.xlarge", "m5.2xlarge"]
+  default = ["t3.small"]
 }
 
 variable "tags" {

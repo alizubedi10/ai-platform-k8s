@@ -30,3 +30,8 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+
+variable "cluster_depends_on" {
+  type    = any
+  default = null
+}
