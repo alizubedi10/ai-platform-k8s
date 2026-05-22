@@ -79,6 +79,14 @@ module "iam" {
   tags                   = local.common_tags
 }
 
+module "cloudwatch" {
+  source             = "../../modules/cloudwatch"
+  cluster_name       = local.cluster_name
+  log_retention_days = 30
+  alert_email        = "alizubedi10@gmail.com"
+  tags               = local.common_tags
+}
+
 resource "aws_s3_bucket" "model_artifacts" {
   bucket = "${local.cluster_name}-model-artifacts"
   tags   = local.common_tags
@@ -94,12 +102,4 @@ resource "aws_s3_bucket_versioning" "model_artifacts" {
   versioning_configuration {
     status = "Enabled"
   }
-}
-
-module "cloudwatch" {
-  source             = "../../modules/cloudwatch"
-  cluster_name       = local.cluster_name
-  log_retention_days = 30
-  alert_email        = "ali.zubedi10@email.com"
-  tags               = local.common_tags
 }
