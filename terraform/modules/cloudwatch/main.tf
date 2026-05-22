@@ -28,29 +28,74 @@ resource "aws_cloudwatch_dashboard" "main" {
   dashboard_body = jsonencode({
     widgets = [
       {
-                                                                                                                                                                                                                pu                                           am                               },
+        type = "metric"
+        properties = {
+          title  = "EKS Node CPU Utilization"
+          period = 300
+          stat   = "Average"
+          metrics = [
+            ["ContainerInsights", "node_cpu_utilization", "ClusterName", var.cluster_name]
+          ]
+        }
+      },
       {
         type = "metric"
         properties = {
           title  = "EKS Node Memory Utilization"
-          per          per          per          per          metrics = [
+          period = 300
+          stat   = "Average"
+          metrics = [
             ["ContainerInsights", "node_memory_utilization", "ClusterName", var.cluster_name]
           ]
         }
       }
-                                          erts                            name}-                                          erts    ic_subscription" "email" {
+    ]
+  })
+}
+
+resource "aws_sns_topic" "alerts" {
+  name = "${var.cluster_name}-alerts"
+  tags = var.tags
+}
+
+resource "aws_sns_topic_subscription" "email" {
   topic_arn = aws_sns_topic.alerts.arn
   protocol  = "email"
   endpoint  = var.alert_email
 }
 
-resource "aws_cloudwatch_metrresource "aws_cloudwatch_metrresource "aws_  resource "aws_cloudwatch_metrresource "aws_clouderatresource "aws_cloudwatch_m"
-  ev  ev  ev  ev  ds  ev2
-                                                                                                                                                                                                                                                                                                 io      
-                       lu                      = var.tags
+resource "aws_cloudwatch_metric_alarm" "high_cpu" {
+  alarm_name          = "${var.cluster_name}-high-cpu"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "node_cpu_utilization"
+  namespace           = "ContainerInsights"
+  period              = 300
+  statistic           = "Average"
+  threshold           = 80
+  alarm_description   = "EKS node CPU above 80%"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+
+  dimensions = {
+    ClusterName = var.cluster_name
+  }
+
+  tags = var.tags
 }
 
-resource "aws_cloudwatch_metric_alarresource "aws_cloudwatch_metric_alarresource "aws_cloudwatch_metric_alarorresource "aws_cloudwatch_metric_alarresource "aws_cloudwatch_metric_alarresource "aws_cloudw  resource "e_resour_utilizationresource "aws_cloudwatch_metric_alarresource "aws_cloudwatch_metric_alarresource "aws_cloudwatch_metric_alarorresource "aws_cloudwatch_metric_alarresource   resource "aws_cloudwatch_metric_alarr_aresource "aws_cloud_snresource "aws_cloudwatch_mensions = {
+resource "aws_cloudwatch_metric_alarm" "high_memory" {
+  alarm_name          = "${var.cluster_name}-high-memory"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "node_memory_utilization"
+  namespace           = "ContainerInsights"
+  period              = 300
+  statistic           = "Average"
+  threshold           = 85
+  alarm_description   = "EKS node memory above 85%"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+
+  dimensions = {
     ClusterName = var.cluster_name
   }
 
