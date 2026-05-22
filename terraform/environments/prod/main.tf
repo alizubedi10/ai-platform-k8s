@@ -6,6 +6,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.0"
+    }
   }
 
   backend "s3" {
@@ -18,8 +22,7 @@ terraform {
 }
 
 provider "aws" {
-  region  = var.aws_region
-  profile = var.aws_profile
+  region = var.aws_region
 
   default_tags {
     tags = local.common_tags
@@ -27,7 +30,7 @@ provider "aws" {
 }
 
 locals {
-  cluster_name = "ai-platform-${var.environment}"
+  cluster_name = "ai-plat-${var.environment}"
   common_tags = {
     Project     = "ai-platform"
     Environment = var.environment
@@ -57,7 +60,7 @@ module "gpu_nodegroup" {
   source             = "../../modules/gpu-nodegroup"
   cluster_name       = local.cluster_name
   private_subnet_ids = module.vpc.private_subnet_ids
-  gpu_instance_types = ["g4dn.2xlarge", "p3.2xlarge"]
+  gpu_instance_types = ["g4dn.2xlarge"]
   desired_size       = 1
   min_size           = 0
   max_size           = 10
@@ -74,6 +77,14 @@ module "iam" {
   tags                   = local.common_tags
 }
 
+module "cloudwatch" {
+  source             = "../../modules/cloudwatch"
+  cluster_name       = local.cluster_name
+  log_retention_days = 90
+  alert_email        = "alizubedi10@gmail.com"
+  tags               = local.common_tags
+}
+
 resource "aws_s3_bucket" "model_artifacts" {
   bucket = "${local.cluster_name}-model-artifacts"
   tags   = local.common_tags
@@ -86,5 +97,7 @@ resource "aws_s3_bucket" "mlflow_artifacts" {
 
 resource "aws_s3_bucket_versioning" "model_artifacts" {
   bucket = aws_s3_bucket.model_artifacts.id
-  versioning_configuration { status = "Enabled" }
+  versioning_configuration {
+    status = "Enabled"
+  }
 }
