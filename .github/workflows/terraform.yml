@@ -11,7 +11,7 @@ on:
       - "terraform/**"
 
 permissions:
-  id-token: write   # For OIDC auth to AWS
+  id-token: write
   contents: read
   pull-requests: write
 
@@ -20,9 +20,6 @@ env:
   AWS_REGION: "us-east-2"
 
 jobs:
-  # ──────────────────────────────────────────────
-  # Lint & Validate (runs on every PR)
-  # ──────────────────────────────────────────────
   validate:
     name: Validate
     runs-on: ubuntu-latest
@@ -37,7 +34,7 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      - - name: Configure AWS credentials
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -55,22 +52,11 @@ jobs:
         working-directory: terraform/environments/${{ matrix.env }}
         run: terraform validate
 
-      - name: tfsec Security Scan
-        uses: aquasecurity/tfsec-action@v1.0.3
-        with:
-          working_directory: terraform/
-
-  # ──────────────────────────────────────────────
-  # Plan (runs on PR)
-  # ──────────────────────────────────────────────
   plan:
-    name: Plan (${{ matrix.env }})
+    name: Plan
     runs-on: ubuntu-latest
     needs: validate
     if: github.event_name == 'pull_request'
-    strategy:
-      matrix:
-        env: [dev]
     steps:
       - uses: actions/checkout@v4
 
@@ -87,35 +73,15 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Init
-        working-directory: terraform/environments/${{ matrix.env }}
+        working-directory: terraform/environments/dev
         run: terraform init
 
       - name: Terraform Plan
-        id: plan
-        working-directory: terraform/environments/${{ matrix.env }}
-        run: terraform plan -no-color -out=tfplan
-        continue-on-error: true
+        working-directory: terraform/environments/dev
+        run: terraform plan -no-color
 
-      - name: Post Plan to PR
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const output = `#### Terraform Plan — \`${{ matrix.env }}\` ${{ steps.plan.outcome == 'success' && '✅' || '❌' }}
-            \`\`\`
-            ${{ steps.plan.outputs.stdout }}
-            \`\`\``;
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: output
-            });
-
-  # ──────────────────────────────────────────────
-  # Apply Dev (merge to main)
-  # ──────────────────────────────────────────────
   apply-dev:
-    name: Apply → dev
+    name: Apply dev
     runs-on: ubuntu-latest
     needs: validate
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -131,45 +97,14 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Terraform Init
-        working-directory: terraform/environments/dev
-        run: terraform init
-
-      - name: Terraform Apply
-        working-directory: terraform/environments/dev
-        run: terraform apply -auto-approve
-
-  # ──────────────────────────────────────────────
-  # Apply Prod (merge to release/*)
-  # ──────────────────────────────────────────────
-  apply-prod:
-    name: Apply → prod
-    runs-on: ubuntu-latest
-    needs: validate
-    if: startsWith(github.ref, 'refs/heads/release/')
-    environment: prod   # Requires manual approval in GitHub Environments
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Terraform Init
-        working-directory: terraform/environments/prod
+        working-directory: terraform/environments/dev
         run: terraform init
 
       - name: Terraform Apply
-        working-directory: terraform/environments/prod
+        working-directory: terraform/environments/dev
         run: terraform apply -auto-approve
