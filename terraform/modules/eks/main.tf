@@ -1,76 +1,120 @@
-module "eks" {
-  source  = "terraform-aws-modules/eks/aws"
-  version = "~> 20.0"
+# CloudWatch Log Groups
+resource "aws_cloudwatch_log_group" "eks_cluster" {
+  name              = "/aws/eks/${var.cluster_name}/cluster"
+  retention_in_days = var.log_retention_days
+  tags              = var.tags
+}
 
-  cluster_name    = var.cluster_name
-  cluster_version = var.cluster_version
+resource "aws_cloudwatch_log_group" "application" {
+  name              = "/aws/eks/${var.cluster_name}/application"
+  retention_in_days = var.log_retention_days
+  tags              = var.tags
+}
 
-  cluster_endpoint_public_access  = var.environment == "dev" ? true : false
-  cluster_endpoint_private_access = true
+resource "aws_cloudwatch_log_group" "mlflow" {
+  name              = "/aws/eks/${var.cluster_name}/mlflow"
+  retention_in_days = var.log_retention_days
+  tags              = var.tags
+}
 
-  vpc_id     = var.vpc_id
-  subnet_ids = var.private_subnet_ids
+resource "aws_cloudwatch_log_group" "model_serving" {
+  name              = "/aws/eks/${var.cluster_name}/model-serving"
+  retention_in_days = var.log_retention_days
+  tags              = var.tags
+}
 
-  # Enable IRSA
-  enable_irsa = true
+# CloudWatch Dashboard
+resource "aws_cloudwatch_dashboard" "main" {
+  dashboard_name = "${var.cluster_name}-dashboard"
 
-  # Cluster add-ons
-  cluster_addons = {
-    coredns = {
-      most_recent = true
-    }
-    kube-proxy = {
-      most_recent = true
-    }
-    vpc-cni = {
-      most_recent    = true
-      before_compute = true
-      configuration_values = jsonencode({
-        env = {
-          ENABLE_PREFIX_DELEGATION = "true"
-          WARM_PREFIX_TARGET       = "1"
+  dashboard_body = jsonencode({
+    widgets = [
+      {
+        type = "metric"
+        properties = {
+          title  = "EKS Node CPU Utilization"
+          period = 300
+          stat   = "Average"
+          metrics = [
+            ["ContainerInsights", "node_cpu_utilization",
+            "ClusterName", var.cluster_name]
+          ]
         }
-      })
-    }
-    aws-ebs-csi-driver = {
-      most_recent              = true
-      service_account_role_arn = module.ebs_csi_irsa.iam_role_arn
-    }
-  }
-
-  # Default node group — general CPU workloads (MLflow, controllers, etc.)
-  eks_managed_node_groups = {
-    general = {
-      name           = "${var.cluster_name}-general"
-      instance_types = var.general_instance_types
-      min_size       = var.environment == "prod" ? 3 : 1
-      max_size       = 10
-      desired_size   = var.environment == "prod" ? 3 : 2
-
-      labels = {
-        role = "general"
+      },
+      {
+        type = "metric"
+        properties = {
+          title  = "EKS Node Memory Utilization"
+          period = 300
+          stat   = "Average"
+          metrics = [
+            ["ContainerInsights", "node_memory_utilization",
+            "ClusterName", var.cluster_name]
+          ]
+        }
+      },
+      {
+        type = "metric"
+        properties = {
+          title  = "Pod Count by Namespace"
+          period = 300
+          stat   = "Average"
+          metrics = [
+            ["ContainerInsights", "pod_number_of_running_containers",
+            "ClusterName", var.cluster_name]
+          ]
+        }
       }
+    ]
+  })
+}
 
-      tags = var.tags
-    }
+# SNS Topic for Alerts
+resource "aws_sns_topic" "alerts" {
+  name = "${var.cluster_name}-alerts"
+  tags = var.tags
+}
+
+resource "aws_sns_topic_subscription" "email" {
+  topic_arn = aws_sns_topic.alerts.arn
+  protocol  = "email"
+  endpoint  = var.alert_email
+}
+
+# CloudWatch Alarms
+resource "aws_cloudwatch_metric_alarm" "high_cpu" {
+  alarm_name          = "${var.cluster_name}-high-cpu"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "node_cpu_utilization"
+  namespace           = "ContainerInsights"
+  period              = 300
+  statistic           = "Average"
+  threshold           = 80
+  alarm_description   = "EKS node CPU above 80%"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+
+  dimensions = {
+    ClusterName = var.cluster_name
   }
 
   tags = var.tags
 }
 
-# IRSA for EBS CSI driver
-module "ebs_csi_irsa" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.0"
+resource "aws_cloudwatch_metric_alarm" "high_memory" {
+  alarm_name          = "${var.cluster_name}-high-memory"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "node_memory_utilization"
+  namespace           = "ContainerInsights"
+  period              = 300
+  statistic           = "Average"
+  threshold           = 85
+  alarm_description   = "EKS node memory above 85%"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
 
-  role_name             = "${var.cluster_name}-ebs-csi"
-  attach_ebs_csi_policy = true
-
-  oidc_providers = {
-    main = {
-      provider_arn               = module.eks.oidc_provider_arn
-      namespace_service_accounts = ["kube-system:ebs-csi-controller-sa"]
-    }
+  dimensions = {
+    ClusterName = var.cluster_name
   }
 
   tags = var.tags

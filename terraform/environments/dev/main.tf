@@ -18,11 +18,13 @@ terraform {
     region         = "us-east-2"
     dynamodb_table = "ai-platform-tfstate-lock"
     encrypt        = true
+    profile        = "ai-platform"
   }
 }
 
 provider "aws" {
-  region = var.aws_region
+  region  = var.aws_region
+  profile = var.aws_profile
 
   default_tags {
     tags = local.common_tags
@@ -92,4 +94,12 @@ resource "aws_s3_bucket_versioning" "model_artifacts" {
   versioning_configuration {
     status = "Enabled"
   }
+}
+
+module "cloudwatch" {
+  source             = "../../modules/cloudwatch"
+  cluster_name       = local.cluster_name
+  log_retention_days = 30
+  alert_email        = "ali.zubedi10@email.com"
+  tags               = local.common_tags
 }

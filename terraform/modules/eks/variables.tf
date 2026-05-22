@@ -1,30 +1,21 @@
 variable "cluster_name" {
-  type = string
+  type        = string
+  description = "EKS cluster name"
 }
 
-variable "cluster_version" {
-  type    = string
-  default = "1.29"
+variable "log_retention_days" {
+  type        = number
+  default     = 30
+  description = "Number of days to retain CloudWatch logs"
 }
 
-variable "environment" {
-  type = string
-}
-
-variable "vpc_id" {
-  type = string
-}
-
-variable "private_subnet_ids" {
-  type = list(string)
-}
-
-variable "general_instance_types" {
-  type    = list(string)
-  default = ["t3.small"]
+variable "alert_email" {
+  type        = string
+  description = "Email address to send CloudWatch alerts to"
 }
 
 variable "tags" {
-  type    = map(string)
-  default = {}
+  type        = map(string)
+  default     = {}
+  description = "Common tags applied to all resources"
 }
