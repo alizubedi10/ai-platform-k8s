@@ -18,7 +18,6 @@ terraform {
     region         = "us-east-2"
     dynamodb_table = "ai-platform-tfstate-lock"
     encrypt        = true
-    profile        = "ai-platform"
   }
 }
 
