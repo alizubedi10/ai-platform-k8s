@@ -4,9 +4,9 @@ resource "aws_eks_node_group" "gpu" {
   node_role_arn   = aws_iam_role.gpu_node.arn
   subnet_ids      = var.private_subnet_ids
 
-  instance_types = var.gpu_instance_types  # e.g. ["g4dn.xlarge"]
+  instance_types = var.gpu_instance_types # e.g. ["g4dn.xlarge"]
 
-  ami_type = "AL2_x86_64_GPU"  # Amazon Linux 2 + NVIDIA drivers
+  ami_type = "AL2_x86_64_GPU" # Amazon Linux 2 + NVIDIA drivers
 
   scaling_config {
     desired_size = var.desired_size
@@ -30,8 +30,8 @@ resource "aws_eks_node_group" "gpu" {
   }
 
   tags = merge(var.tags, {
-    "k8s.io/cluster-autoscaler/enabled"               = "true"
-    "k8s.io/cluster-autoscaler/${var.cluster_name}"   = "owned"
+    "k8s.io/cluster-autoscaler/enabled"                  = "true"
+    "k8s.io/cluster-autoscaler/${var.cluster_name}"      = "owned"
     "k8s.io/cluster-autoscaler/node-template/label/role" = "gpu"
   })
 
